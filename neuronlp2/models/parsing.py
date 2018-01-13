@@ -324,7 +324,6 @@ class StackPtrNet(nn.Module):
         self.arc_c = nn.Linear(hidden_size * 2, arc_space)  # arc dense for encoder
         self.attention = BiAAttention(arc_space, arc_space, 1, biaffine=biaffine)
 
-        ord = 1
         self.type_h = nn.Linear(hidden_size * ord, type_space) # type dense for decoder
         self.type_c = nn.Linear(hidden_size * 2, type_space)  # type dense for encoder
         self.bilinear = BiLinear(type_space, type_space, self.num_labels)
@@ -450,14 +449,14 @@ class StackPtrNet(nn.Module):
         if self.biasArc:
             # [batch, length_decoder, hidden_size * 2]
             output_enc_arc = output_enc[batch_index, stacked_heads.data.t()].transpose(0, 1)
-            # output_enc_type = output_enc_arc
+            output_enc_type = output_enc_arc
 
         if self.sibling:
             # [batch, length_decoder, hidden_size * 2]
             mask_sibs = siblings.ne(0).float().unsqueeze(2)
             output_enc_sibling = output_enc[batch_index, siblings.data.t()].transpose(0, 1) * mask_sibs
             output_enc_arc = output_enc_sibling if output_enc_arc is None else output_enc_arc + output_enc_sibling
-            # output_enc_type = output_enc_sibling if output_enc_type is None else output_enc_type + output_enc_sibling
+            output_enc_type = output_enc_sibling if output_enc_type is None else output_enc_type + output_enc_sibling
 
         if self.grandPar:
             # [length_decoder, batch]
@@ -465,7 +464,7 @@ class StackPtrNet(nn.Module):
             # [batch, length_decoder, hidden_size * 2]
             output_enc_grand = output_enc[batch_index, gpars].transpose(0, 1)
             output_enc_arc = output_enc_grand if output_enc_arc is None else output_enc_arc + output_enc_grand
-            # output_enc_type = output_enc_grand if output_enc_type is None else output_enc_type + output_enc_grand
+            output_enc_type = output_enc_grand if output_enc_type is None else output_enc_type + output_enc_grand
 
         if output_enc_arc is not None:
             output_dec_arc = torch.cat([output_dec_arc, output_enc_arc], dim=2)
@@ -637,18 +636,18 @@ class StackPtrNet(nn.Module):
             output_enc_type = None
             if self.biasArc:
                 output_enc_arc = output_enc[heads]
-                # output_enc_type = output_enc_arc
+                output_enc_type = output_enc_arc
 
             if self.sibling:
                 mask_sibs = Variable(sibs.ne(0).float().unsqueeze(1))
                 output_enc_sibling = output_enc[sibs] * mask_sibs
                 output_enc_arc = output_enc_sibling if output_enc_arc is None else output_enc_arc + output_enc_sibling
-                # output_enc_type = output_enc_sibling if output_enc_type is None else output_enc_type + output_enc_sibling
+                output_enc_type = output_enc_sibling if output_enc_type is None else output_enc_type + output_enc_sibling
 
             if self.grandPar:
                 output_enc_gpar = output_enc[gpars]
                 output_enc_arc = output_enc_gpar if output_enc_arc is None else output_enc_arc + output_enc_gpar
-                # output_enc_type = output_enc_gpar if output_enc_type is None else output_enc_type + output_enc_gpar
+                output_enc_type = output_enc_gpar if output_enc_type is None else output_enc_type + output_enc_gpar
 
             if output_enc_arc is not None:
                 # output [num_hyp, hidden_size] + [num_hyp, hidden_size *2] = [num_hyp, hidden_size * 3] --> [num_hyp, 1, hidden_size * 3]
