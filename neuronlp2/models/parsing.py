@@ -370,13 +370,13 @@ class StackPtrNet(nn.Module):
         # output from rnn [batch, length, hidden_size]
         output, hn = self.encoder(src_encoding, mask_e, hx=hx)
 
-        # apply dropout
-        # [batch, length, hidden_size] --> [batch, hidden_size, length] --> [batch, length, hidden_size]
-        output = self.dropout_out(output.transpose(1, 2)).transpose(1, 2)
-
         # use src encodding
         if self.srcEncode:
             src_encoding = torch.cat([src_encoding, output], dim=2)
+
+        # apply dropout
+        # [batch, length, hidden_size] --> [batch, hidden_size, length] --> [batch, length, hidden_size]
+        output = self.dropout_out(output.transpose(1, 2)).transpose(1, 2)
 
         return src_encoding, output, hn, mask_e, length_e
 
