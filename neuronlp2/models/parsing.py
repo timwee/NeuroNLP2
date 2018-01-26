@@ -268,7 +268,7 @@ class BiRecurrentConvBiAffine(nn.Module):
 
 
 class StackPtrNet(nn.Module):
-    def __init__(self, word_dim, num_words, char_dim, num_chars, pos_dim, num_pos, num_filters, kernel_size, rnn_mode, hidden_size, num_layers, num_labels, arc_space, type_space,
+    def __init__(self, word_dim, num_words, char_dim, num_chars, pos_dim, num_pos, num_filters, kernel_size, rnn_mode, input_size_decoder, hidden_size, num_layers, num_labels, arc_space, type_space,
                  embedd_word=None, embedd_char=None, embedd_pos=None, p_in=0.2, p_out=0.5, p_rnn=(0.5, 0.5), biaffine=True, pos=True, prior_order='deep_first', skipConnect=False, srcEncode=False,
                  biasArc=False, grandPar=False, sibling=False):
 
@@ -317,6 +317,8 @@ class StackPtrNet(nn.Module):
         dim_dec = dim_enc
         if self.srcEncode:
             dim_dec += hidden_size * 2
+
+        self.src_dense = nn.Linear(dim_dec, input_size_decoder)
 
         self.encoder = RNN_ENCODER(dim_enc, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=True, dropout=p_rnn)
 
@@ -370,13 +372,15 @@ class StackPtrNet(nn.Module):
         # output from rnn [batch, length, hidden_size]
         output, hn = self.encoder(src_encoding, mask_e, hx=hx)
 
+        # apply dropout
+        # [batch, length, hidden_size] --> [batch, hidden_size, length] --> [batch, length, hidden_size]
+        output = self.dropout_out(output.transpose(1, 2)).transpose(1, 2)
+
         # use src encodding
         if self.srcEncode:
             src_encoding = torch.cat([src_encoding, output], dim=2)
 
-        # apply dropout
-        # [batch, length, hidden_size] --> [batch, hidden_size, length] --> [batch, length, hidden_size]
-        output = self.dropout_out(output.transpose(1, 2)).transpose(1, 2)
+        src_encoding = F.elu(self.src_dense(src_encoding))
 
         return src_encoding, output, hn, mask_e, length_e
 
@@ -451,11 +455,11 @@ class StackPtrNet(nn.Module):
         # create batch index [batch]
         batch_index = torch.arange(0, batch).type_as(arc_c.data).long()
 
-        hn = self._transform_decoder_init_state(hn)
-        # output from decoder [batch, length_decoder, tag_space]
         # transform hn to [num_layers, batch, hidden_size]
-        if self.skipConnect:
+        hn = self._transform_decoder_init_state(hn)
 
+        # output from decoder [batch, length_decoder, hidden_size]
+        if self.skipConnect:
             output_dec, _, mask_d, _ = self._get_decoder_output_with_skip_connect(src_encoding, stacked_heads, skip_connect, hn, mask_d=mask_d, length_d=length_d)
         else:
             output_dec, _, mask_d, _ = self._get_decoder_output(src_encoding, stacked_heads, hn, mask_d=mask_d, length_d=length_d)
