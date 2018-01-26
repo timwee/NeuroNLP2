@@ -322,7 +322,7 @@ class StackPtrNet(nn.Module):
 
         self.encoder = RNN_ENCODER(dim_enc, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=True, dropout=p_rnn)
 
-        self.decoder = RNN_DECODER(dim_dec, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=False, dropout=p_rnn)
+        self.decoder = RNN_DECODER(input_size_decoder, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=False, dropout=p_rnn)
 
         self.hx_dense = nn.Linear(2 * hidden_size, hidden_size)
 
